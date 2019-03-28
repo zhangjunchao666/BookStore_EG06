@@ -1,0 +1,179 @@
+项目5阶段笔记：
+	在项目中使用Session对象共享数据
+	
+	1、保持登录状态+注销
+		- 当用户提交登录请求给UserServlet.login()时，如果登录成功，可以将查询到的user对象共享到session中[保持登录状态：   页面中应该显示登录成功的状态栏]
+		- 在user_header.jsp页面中  根据登录状态显示不同的状态栏
+		
+		- 用户登录成功后，页面中可以看到注销超链接，点击时提交请求给UserServlet.logout()处理[销毁session对象]
+		- 修改user_header.jsp页面中 已登录状态栏中的注销超链接 
+	2、注册时防止表单数据重复提交
+		验证码图片 kaptcha.jar解决
+		2.1 导入相关jar包
+		
+		2.2 在web.xml中配置KaptchaServlet
+		
+		2.3 在regist.jsp 验证码的img标签内 src地址访问kaptchaservlet
+		
+		2.4 在UserServlet.regist()方法中处理注册请求前 验证用户提交的验证码信息防止表单重复提交
+			
+		2.5 点击刷新验证码功能
+			js-给img标签绑定单击事件，点击时让img标签刷新[重新访问一次KaptchaServlet生成新的验证码图片然后设置到img标签内的src中]
+		
+		
+	3、购物车功能
+		实现购物车的技术：
+			> 使用Cookie实现，每次提交添加购物车请求时服务器将要购买的图书作为一个Cookie交给浏览器保存： 明文传递不安全，不用
+			> 使用Session实现：    使用
+				用户提交购买请求时，将购买的数据存到session中，本次会话内可以对购买的信息进行增删改查操作
+				- 对比数据库操作少了  dao层
+				优点：用户不登录也可以使用购物车
+				缺点： 浏览器关闭后数据就没有了
+			> 使用数据库实现：
+				用户提交购买请求时，servlet调用service处理业务，将数据交给DAO保存到数据库中
+				优点：数据持久化保存了，不管什么时候都可以进行增删改查的操作
+				缺点：用户必须登录之后，才可以将数据和用户关联
+		
+		如果将要购买的数据分散的保存到session中，增删改查时不方便
+		可以将购物车需要的数据提取成一个类，每个购物车都是此类的一个实例
+		
+		Cart:   一个用户只能使用一个购物车
+			--- List<CartItem> list;  购物车中购物项的集合[用户操作时会有大量的增删改操作，list无法快速定位一个元素]
+			Map<String , CartItem> map;  使用map保存购物项，键使用购物项对应的图书的id，一定是唯一的
+			int totalCount; 购物车中商品的总数量：  遍历累加购物项的count得到
+			double totalAmount; 购物车中商品总金额：  遍历累加购物项的amount得到
+			//操作购物车的方法直接携带Cart类中，操作购物车的本质就是操作map集合
+			//1、添加图书到购物车的方法
+			void addBook2Cart(Book book);
+			//2、将map中的value值转为list集合的方法
+			List<CartItem> getCartItemList();
+			//3、删除指定购物项的方法   根据传入的图书id删除map中对应的数据
+			void deleteCartItemByBookId(String bookId);
+			//4、清空购物车
+			void clearCart();
+			//5、更新指定购物项数量的方法
+			void updateCountByBookId(String count , String bookId);
+		CartItem: 购物项 ， 一个购物车可以有多个购物项 , 一本图片对应一个购物项(如果一本图书添加了多次增加购物项数量即可)
+			Book book; 购物项对应的图书数据
+			int count; 单本图书购买的数量
+			double amount; 单本图书购买的金额   book.getPrice()*count
+			
+		购物车类的使用： 用户打开浏览器点击加入购物车时，服务器中可以为本次会话的用户分配一个购物车对象，并存到session中
+		用户对购物车中图书的增删改查的操作就是对购物车对象的CartItem集合数据的增删改查。
+	
+		开发流程：
+			1、添加图书到购物车
+				用户在首页第一次点击加入购物车按钮时，需要使用购物车对象保存本次会话的购物信息 
+				CartServlet：  处理用户购物车相关的请求
+					addBook();  添加图书到购物车的方法
+				购物车相关的操作数据都是保存在服务器的运行内存中，没有持久化保存，不用Dao，购物车的相关业务都是对cart对象map数据的操作，方法都封装在Cart类中	
+			2、显示购物车数据
+				用户点击 购物车时  在/pages/cart/cart.jsp页面中获取session域中的cart进行显示即可	
+			3、删除指定购物项
+				用户cart.jsp页面点击删除 时，将要删除购物项的图书id提交给CartServlet 删除map中指定id对应的购物项即可
+			4、清空购物车
+				用户在	cart.jsp页面点击清空购物车超链接  请求交给CartServlet，删除购物车对象map中所有数据即可
+			5、更改购物项数量
+				用户在cart.jsp页面输入完数量后需要提交请求给CartServlet处理，更新cart对象map指定购物项的数量就可以	
+				在CartServlet： 提供 updateCount方法  处理修改购物项数量的请求： 要修改的购物项(通过图书id确定)，要修改的数量
+	
+		5、完成结账功能
+			5.1  结账操作必须已经登录[订单需要和用户关联，以后可以查询 售后维护]
+			5.2 结账后的数据一定要持久化保存到数据库中
+			5.3 订单数据是根据每次购买时的购物车数据转换得到的
+				一个用户可以有多个订单：一对多的关系
+				购物车中的数据要拆开保存[一条二维关系的数据不能保存有集合的对象数据]
+					购物车：     totalCount   totalAmount    
+						订单(是由购物车转换而来的)：  id(唯一，不能给用户暴露公司信息，便于售后使用：使用 时间戳+暗号+userId) , 
+							total_amount, total_count , order_time(当前时间) , state(int 0未发货 1已发货 2交易完成) ，user_id(外键关联用户表，决定当前订单属于哪个用户)
+					购物项集合： 
+						订单项(每个购物项都可以转换为一个订单项)： id , title/price/author/img_path(购买时的图书相关信息),count,amount, order_id(外键关联订单表，决定当前订单项属于哪个订单)
+			Servlet
+			
+			
+			Service: 业务层有Servlet负责调用，当servlet接受到请求之后如果需要处理业务会调用service的方法
+				
+			Dao
+				OrderDao+OrderDaoImpl：操作订单表的dao
+					1、保存订单数据到bs_order表：  int saveOrder(Order order);
+					2、根据用户id查询订单：   List<Order> getOrdersByUserId(int userId);
+					3、管理员查询所有订单集合的方法; List<Order> getAllOrders();
+					//收发货操作本质就是修改订单的state状态值
+					4、管理员和用户修改订单状态的方法:  updateStateByOrderId(String orderId , int state);
+				OrderItemDao+OrderItemDaoImpl：操作订单项表的dao
+					1、保存订单项到bs_orderitem表：int saveOrderItem(OrderItem orderItem);
+					2、根据订单id查询订单项集合：  List<OrderItem> getOrderItemsByOrderId(String orderId);
+			实体类： Order+OrderItem
+			表：   一个用户可以有多个订单(多个订单的user_id字段和用户的id一样)，一个订单中可以有多个订单项(多个订单项的order_id和订单的id一样)
+				一个购物车结账时对转成一个订单，  一个购物车的多个购物项每个都会转换成一个订单项存到数据库中
+				bs_order 订单表
+				bs_orderitem 订单项表
+				-- 创建订单表
+				CREATE TABLE bs_order(
+				 id VARCHAR(100) PRIMARY KEY,
+				 total_count INT(11) , 
+				 total_amount DOUBLE(11,2),
+				 order_time DATETIME,# datetime 包含年月日时分秒 ， date 只有年月日   java中使用java.util.Date或java.sql.Date都可以接收
+				 state INT(2),
+				 user_id INT(11),
+				 # 将当前表的user_id字段和 user表的id字段  外键关联
+				 FOREIGN KEY(user_id) REFERENCES bs_user(id)
+				);
+				-- 创建订单项表
+				CREATE TABLE bs_orderitem(
+				 id INT(11) PRIMARY KEY AUTO_INCREMENT,
+				 title VARCHAR(100),
+				 author VARCHAR(100), 
+				 img_path VARCHAR(100),
+				 price DOUBLE(11,2),
+				 COUNT INT(11),
+				 amount DOUBLE(11,2),
+				 order_id VARCHAR(100),
+				 FOREIGN KEY(order_id) REFERENCES bs_order(id)
+				);
+			
+			
+			5.4 、完成结账功能
+				在购物车页面点击去结账，处理流程
+					- 处理请求的Servlet需要验证用户是否登录
+					- 将Cart和User 绑定，将购物车转为Order将购物项转为OrderItem存到数据库
+					- 使用完购物车 需要清空购物车
+					- 修改图书的销量库存
+				OrderClientServlet：   提供checkout()方法处理用户的结账请求
+					- 判断是否登录
+					- 获取参数：  Cart、User
+					- 调用service处理业务
+				OrderService+OrderServiceImpl: String createOrder(Cart cart , User user);//返回创建的订单id
+					- 将购物车转为订单
+					- 调用OrderDao保存订单到数据库
+					- 将购物车的购物项集合转成订单项，调用OrderItemDao保存到数据库
+					- 保存订单项时，将bs_book表对应的图书的销量库存更新
+					- 清空购物车 
+					- 返回订单id
+					 处理订单相关的请求
+		
+			5.5 完成用户查询订单的功能
+				OrderClientServlet： findOrders();  用户查询自己订单的方法
+				
+				OrderService： List<Order> findOrders(int userId);  用户查询订单集合的业务方法
+				
+				使用fmt标签库 处理日期时间
+			5.6 完成用户的收货功能
+				OrderClientServlet: takeGoods(); 用户收货的请求方法
+				OrderService： takeGoods(String orderId , int state); 处理用户收货的业务方法
+			5.7 完成管理员查询所有订单的功能
+				创建OrderManagerServlet： 处理管理员订单相关的请求
+					findAllOrders(); 处理查询所有订单的请求
+					
+				OrderService: List<Order> findAllOrders(); 处理查询所有订单的业务方法
+			5.8 完成管理员发货的功能[修改state状态为1]
+				OrderManagerServlet: sendGoods(); 管理员发货的请求方法
+				OrderService： sendGoods(String orderId , int state); 处理管理员发货的业务方法	
+			
+			
+			
+			
+			
+			
+			
+	

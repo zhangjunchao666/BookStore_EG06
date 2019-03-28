@@ -1,0 +1,34 @@
+项目6阶段笔记：
+	1、在项目中使用Filter:
+	
+		1.1 LoginFilter拦截：  访问OrderClientServlet的所有方法时，必须检查是否登录
+		
+		
+		1.2 EncodingFilter拦截访问项目的所有请求：    统一处理字符编码	
+		
+		
+		1.3 统一处理事务
+			多个sql操作，我们希望要么一起成功要么一起失败，就可以看做是一个事务
+			
+			
+			问题1：java.sql.SQLException: connection holder is null
+				原因：  访问首页分页数据时 查询了总数量后关闭了数据库连接，导致当前线程后面的数据库操作使用的连接都是空
+				解决：在BaseDao中不要关闭数据库连接，在TransactionFilter中 每个线程结束时再关闭线程对应的连接对象
+			问题2：事务没有起作用，和没添加一样
+				原因： BaseDao中捕获了所有的异常，异常不能交给TransactionFilter
+					filter需要根据异常决定数据是否提交或者回滚
+				解决： 代码中所有的异常都抛出交给filter处理
+					BaseDao
+					BaseServlet 将编译时异常转为运行时异常抛出
+			问题3： 500   反射异常
+				原因： TransactionFilter只捕获了sql异常
+				解决：捕获Exception
+			
+	ThreadLocal<T>: 内部维护了一个线程安全的Map<Thread , T>，默认以线程对象作为键
+		线程帮助类	，可以给线程对象绑定数据
+		
+		void set(T t);  默认以当前线程对象作为键，传入的t作为值存到内部的map中
+		T get(); 默认以当前线程对象为键从map中取出值
+		void remove(); 默认以当前线程对象为键map中移除对应的值
+			
+			

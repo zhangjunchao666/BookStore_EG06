@@ -1,0 +1,102 @@
+项目第二阶段：
+		搭建项目结构
+		使用servlet完成登录注册功能[和用户相关的功能]
+		
+	表示层： 用户直接访问交互的资源
+			登录
+				login.html	收集登录数据
+				LoginServlet 处理登录请求    获取账号密码并调用dao的方法去数据库判断数据是否存在
+				login_success.html  登录成功页面
+								登录失败 转发到login页面让用户继续登录
+			注册
+				regist.html  收集用户注册的数据
+				RegistServlet   处理注册请求  将数据保存到数据库中
+				regist_success.html 注册成功页面
+								注册失败 转发到注册页面让用户继续注册
+	数据持久化层(DAO):   和数据库交互的层[对数据库数据进行增删改查操作的层]
+			UserDao:   一张表的操作会封装到一个对应的Dao中
+				登录： User getUserByUsernameAndPassword(User user);//根据账号密码查询用户对象，如果查找到 登录成功
+				注册：int saveUser(User user);//返回值>0代表保存成功，<=0代表注册失败
+			BaseDao:  操作数据库的基类[封装了增删改查通用的方法]
+			JDBCUtils：  获取数据库连接和释放连接的工具类
+	和数据库交互需要第三方jar的支持：  mysql.jar mysql驱动包, druid.jar 数据库连接池 + 配置文件 ， dbutils.jar 提供操作数据库的工具类
+	实体类：    一张表对应一个类，用来描述表数据     向数据库存储数据时可以使用类的实例携带数据，如果读取数据库表数据时可以将数据转为对象
+			User
+	数据库：  一个项目对应一个数据库   bookstore_0622数据库
+			一类需求使用一个表存储数据   bs_user ：用来存储用户数据
+	
+	
+	开发步骤：  分析从前向后， 开发从后向前
+		1、创建数据库+用户表+实体类
+			 bookstore_0622
+			 bs_user表：  
+			 	id   int(11)   primary key auto_increment
+			 	username  varchar(100)   not null unique
+			 	password  varchar(100) not null 
+			 	email     varchar(100) unique 
+	
+			-- 创建bs_user表
+				CREATE TABLE bs_user(
+				 id INT(11) PRIMARY KEY AUTO_INCREMENT,
+				 username VARCHAR(100) NOT NULL UNIQUE,
+				 `password` VARCHAR(100) NOT NULL,
+				 email VARCHAR(100) UNIQUE
+				);
+		2、将数据库连接需要的jar包拷贝到项目中
+			jar包存放到WEB-INF/lib文件夹中，不能手动buildpath[mysql连接驱动包，dbutils工具包，druid数据库连接池包]
+			druid的配置文件存放到src类路径下
+		3、创建JDBCUtils
+			提供获取连接和释放连接的方法
+		4、创建BaseDao
+			提供通用的操作数据库表数据的方法
+			update:增删改
+			getBean:查询一条记录封装位一个对象
+			getBeanList:查询多条记录封装位对象的集合
+			getCount:  查询表数据的记录条数	  做分页使用
+		5、创建UserDao	
+			面向接口编程： 需求经常改变的类，一般使用接口约束方法的改变(可以让项目分模块同步开发，如果需求变化了子类必须实现)
+			创建interface UserDao  : 约束对bs_user表的操作
+				User getUserByUsernameAndPassword(User user);    登录时根据账号密码查询用户对象的方法    返回值如果为null代表查询失败登录失败
+				int saveUser(User user);  注册时保存注册信息到数据库中   返回值<=0代表注册失败
+			创建class UserDaoImpl extends BaseDao implements UserDao: 对user表操作的实现
+			
+			测试UserDao的方法
+		6、完成注册功能
+			用户在注册页面regist.html页面中输入注册信息请求提交给RegistServlet处理	，调用UserDao将数据保存到数据库中
+			
+			注册失败后转发到regist.html页面，相对路径参考位置发生了改变相对路径失效了
+				- 使用绝对路径  或 base标签可以解决
+			步骤：
+				6.1 创建RegistServlet在doget中处理注册请求
+				6.2 修改regist.html页面的form表单 的action属性：表单数据提交给RegistServlet
+				6.3 使用base标签和regist.html页面中的相对路劲拼接  解决相对路径失效的问题
+		7、完成登录功能
+			用户在login.html页面中输入登录账号密码提交给LoginServlet处理	，调用UserDao的方法查询用户	
+			步骤：
+				7.1 创建LoginServlet在doget中处理注册请求
+				7.2 修改login.html页面的form表单 的action属性：表单数据提交给LoginServlet
+				7.3 使用base标签和login.html页面中的相对路径拼接  解决相对路径失效的问题	、
+	项目的三层架构：目的为了解耦合，出现问题便于调试，代码的扩展性增强，便于维护
+		缺点： 增加了代码工程量，降低了项目执行的效率
+		表示层：服务员    接受请求 获取请求参数，处理业务逻辑的代码交给其他java类实现
+			LoginServlet
+			RegistServlet
+		业务逻辑层(service)	：厨师   负责连接表示层和业务逻辑层，所有的不方便写在dao和表示层的代码全部写在业务层
+			业务也会经常变化，采用面向接口编程
+			interface  UserService:  约束用户相关的业务
+				User login(User user);//处理登录业务
+				boolean	regist(User user);//处理注册的业务方法
+			class UserServiceImpl:  用户业务的实现类
+		DAO层： 采购员	负责和数据库交互，和数据库无关的代码写在其他java类中
+			UserDao
+		数据库	
+	
+		表示层接受到请求 调用service层的方法处理业务，service层需要操作数据库时调用Dao层方法实现
+			8、项目中使用三层架构
+				8.1 创建UserService接口 提供login+regist业务方法
+				8.2 创建UserServiceImpl 实现UserService
+				8.3 LoginServlet和RegistServlet中  修改dao为service处理业务
+			
+			
+			
+	

@@ -1,0 +1,75 @@
+项目三阶段分析：
+	1、所有页面修改为jsp页面
+		1.1 创建html页面同名的jsp页面，然后将html页面中的内容拷贝到jsp页面中   不用
+		1.2 
+			在所有的html页面第一行添加page指令
+			再修改html后缀为jsp
+	
+	
+	2、将项目页面中公共部分提取成单独的页面，再静态包含到需要使用此页面的页面中
+		在WEB-INF下创建include文件夹 存放提取的页面
+		2.1 管理员 相关页面(manager下的资源)右上角的 状态栏
+			将管理员访问页面的右上角状态栏提取到 manager_header.jsp
+			将manager文件夹所有的页面中的状态栏替换成  静态包含manager_header.jsp页面
+		2.2 用户访问的页面 右上角的状态栏
+			将用户访问页面右上角登录状态栏提取到 user_header.jsp
+			在所有的用户页面中  使用user_header.jsp页面 静态包含替换  之前的状态栏
+			
+		2.3 所有的页面中都使用了相对路径，可以提取一个base页面，包含  base标签+css样式、js文件的引入
+			将 base标签+css样式的引入+jquery文件的引入提取到 base.jsp页面中
+			在所有的页面中  通过静态包含 引入base.jsp页面 
+			
+		2.4 修改所有的路径和base标签进行拼接
+			修改所有的html后缀名为 jsp
+			修改提取的页面中的超链接后缀和路径
+			修改LoginServlet和RegistServlet中的 转发重定向的路径后缀名
+	3、登录失败或注册失败后 转发到登录注册页面没有给用户提示
+		登录失败或注册失败时在servlet中设置失败消息然后再转发到登录或注册页面给用户提示
+	
+		LoginServlet或RegistServlet中  判断如果登录或注册失败，可以向request域中设置错误消息
+		转发到注册或登录页面后 可以获取显示[页面显示时需要判断]
+	4、注册失败后  转发会注册页面，此时可以将注册时输入的用户数据回显到页面中
+		4.1 用户打开注册页面[一个完整的请求]
+		4.2 用户填写注册信息，然后点击注册按钮提交请求给RegistServlet[可以获取注册信息]
+		
+			RegistServlet获取注册信息并保存到数据库中，如果注册失败，转发到regist.jsp页面[也可以获取注册信息][又是一个完整的请求]
+	
+			注册页面响应给浏览器之前，可以获取注册信息  显示到表单中，然后再将页面交给浏览器
+				[如果是第一次打开注册页面还没有注册信息没有回显数据
+					如果是注册失败回来的由注册信息可以获取回显
+				]
+	
+	5、servlet只能处理单一的请求
+		模仿HttpServlet： 可以同时处理7种请求[根据浏览器提交的请求方式：  get   doGet ]
+		一类请求对应一个Servlet
+		UserServlet  extends HttpServlet
+			当UserServlet被访问时，服务器一定会调用doGet方法处理请求
+			在doGet中可以获取type参数值，判断具体的需求，根据需求调用对应的方法处理请求
+		修改login.jsp和regist.jsp页面： action地址修改为UserServlet ， 在表单中添加一个表单项用来携带请求类型参数	
+
+		步骤：
+			1、创建UserServlet
+			2、在UserServelt提供login和regist方法[直接从LoginServlet和RegistServlet中拷贝，修改方法名]
+			3、在UserServlet的doGet方法中通过反射 根据type参数值调用对应的方法
+			4、login.jsp和regist.jsp页面中的action地址 修改为UserServlet，并提供一个隐藏表单项携带type参数
+			
+		每个Servlet的doGet和doPost方法一样，都是在doGet中通过反射调用具体的方法，可以提取这两个方法
+		 BaseServlet:  
+			将UserServlet的doGet和doPost方法提取到BaseServlet中，然后BaseServlet继承HttpServlet
+			UserServlet继承BaseServlet
+			-- 当访问UserServlet时：  服务器每次都会调用service方法处理请求，调用了HttpServlet的service
+				在HttpServlet重载的service方法中调用doGet或doPost时，UserServlet没有，调用BaseServlet
+				BaseServlet的doGet方法中[this代表UserServlet的对象]通过反射调用了访问的子类type值对应的方法
+
+			使用BaseServlet需要注意的地方：
+				1、继承BaseServlet的子类不能实现doGet和doPost方法[在调用doGet时一定要调用BaseServlet]
+				2、访问BaseServlet的子类必须提供 type参数[type参数值对应子类中的一个方法名]
+				3、创建子类方法时 方法名一定要和type值一样，方法结构和doGet一样
+			
+			
+
+
+
+
+
+
